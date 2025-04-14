@@ -1,0 +1,48 @@
+# Build
+bin/
+obj/
+*.dll
+*.exe
+*.pdb
+
+# User-specific files
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Logs
+*.log
+
+# Secrets
+appsettings.Development.json
+appsettings.Local.json
+secrets.json
+
+# Dotnet tools
+*.dbmdl
+*.bak
+*.sql
+
+# Dependency cache
+packages/
+.nuget/
+*.nupkg
+
+# Rider
+*.sln.iml
+.idea/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+TestResults/
+
+# Optional: if you're using npm for frontend inside the project
+node_modules/
+dist/
