@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 
-public class BlackjackHub : Hub, IGameEvents
+public class BlackjackHub : Hub
 {
     private readonly Manager _manager;
 
@@ -12,7 +12,7 @@ public class BlackjackHub : Hub, IGameEvents
         _manager = manager;
     }
 
-    private void addPlayer(string playerId, string connId)
+    private void AddPlayer(string playerId, string connId)
     {
         if (_players_conn.ContainsKey(playerId))
         {
@@ -31,11 +31,15 @@ public class BlackjackHub : Hub, IGameEvents
 
         if (string.IsNullOrEmpty(playerId) || string.IsNullOrEmpty(roomId)) return;
 
-        var room = _manager.GetOrCreateRoom(roomId!, this);
-        addPlayer(playerId!, Context.ConnectionId);
+        var room = _manager.GetOrCreateRoom(roomId!);
+        AddPlayer(playerId!, Context.ConnectionId);
         room.AddPlayer(playerId!);
-        await Groups.AddToGroupAsync(Context.ConnectionId, roomId!);
-        await Clients.Caller.SendAsync("Welcome", $"Bienvenido {playerId} a la sala {roomId}");
+        await Groups.AddToGroupAsync(Context.ConnectionId, room.Id);
+        await Clients.Caller.SendAsync("Welcome", new
+        {
+            message = $"Bienvenido {playerId} a la sala {room.Id}",
+            players = room.Players
+        });
     }
 
     public async Task SendToRoom(string roomId, string method, object? data)
@@ -50,22 +54,19 @@ public class BlackjackHub : Hub, IGameEvents
 
     public async Task JoinRoom(string roomId, string playerId)
     {
-        var room = _manager.GetOrCreateRoom(roomId, this);
+        var room = _manager.GetOrCreateRoom(roomId);
         room.AddPlayer(Context.ConnectionId);
 
         await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
         await Clients.Caller.SendAsync("Welcome", $"Bienvenido {playerId} a la sala {roomId}");
     }
 
-    public async Task StartGame(string roomId)
+    public void StartGame(string roomId)
     {
+        Console.WriteLine($"Starting game in room {roomId}");
         var room = _manager.GetRoom(roomId);
+        Console.WriteLine($"Room: {room}");
+        if (room == null) return;
         room?.DealInitialCards();
-    }
-
-    public async Task OnCardDealt(string playerId, string roomId, Card card)
-    {
-        await Clients.GroupExcept(roomId, Context.ConnectionId).SendAsync("CardDealt", playerId);
-        await Clients.Client(_players[playerId]).SendAsync("CardDealtShow", playerId, card);
     }
 }

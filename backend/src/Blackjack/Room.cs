@@ -22,18 +22,24 @@ public class Room(IGameEvents gameEvents, int decks = 6, string? id = null, stri
     {
         foreach (var player in Players.Values)
         {
-            player.Hand.Add(Deck.Draw());
-            // _gameEvents.
+            Card card = Deck.Draw();
+            player.Hand.Add(card);
+            _gameEvents.OnCardDealt(player.Id, Id, card);
         }
         
-        Dealer.Hand.Add(Deck.Draw()); // This one should be visible
+        Card dealerCard = Deck.Draw();
+        Dealer.Hand.Add(dealerCard); // This one should be visible
+        _gameEvents.OnCardDealt(Dealer.Id, Id, dealerCard);
 
         foreach (var player in Players.Values)
         {
-            player.Hand.Add(Deck.Draw());
+            Card card = Deck.Draw();
+            player.Hand.Add(card);
+            _gameEvents.OnCardDealt(player.Id, Id, card);
         }
 
         Dealer.Hand.Add(Deck.Draw()); // This one should be hidden
+        _gameEvents.OnCardDealt(Dealer.Id, Id, null); // This one should be hidden
     }
 
     public void Hit(string playerId)

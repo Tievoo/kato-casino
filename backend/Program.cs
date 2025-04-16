@@ -18,6 +18,12 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.AddSingleton<IGameEvents>(sp =>
+{
+    var hubContext = sp.GetRequiredService<IHubContext<BlackjackHub>>();
+    return new GameEvents(hubContext);
+});
+
 builder.Services.AddSingleton<Manager>();
 
 var app = builder.Build();
