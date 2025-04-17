@@ -11,11 +11,12 @@ export function Room() {
         },
         [params]
     );
-    const [playerId, setPlayerId] = useState<string>(
-        localStorage.getItem("playerId") || crypto.randomUUID())
+    const playerId = useMemo(() => localStorage.getItem("playerId") || crypto.randomUUID(), []);
     const [dealerCards, setDealerCards] = useState<string[]>([]);
     const [myCards, setMyCards] = useState<string[]>([]);
     const [playerCards, setPlayerCards] = useState<Record<string, string[]>>({});
+
+    const [playerTurn, setPlayerTurn] = useState<string | null>(null);
 
     const [connection, setConnection] = useState<HubConnection>();
 
@@ -31,12 +32,28 @@ export function Room() {
             )
             .build();
 
-        connection.on("Welcome", (msg) => console.log(msg));
+        connection.on("Welcome", (room) => {
+            console.log("Bienvenido", room);
+            setPlayerCards((prev) => {
+                const ids: string[] = Object.keys(room.players);
+                const newPlayers = ids.filter((id) => !prev[id] && id !== playerId);
+                const newCards = Object.fromEntries(
+                    newPlayers.map((id) => [id, []])
+                );
+                return {
+                    ...prev,
+                    ...newCards,
+                };
+            });
+        });
         connection.on("CardDealt", (cPlayerId, card) =>{
             console.log("CardDealt", cPlayerId, card);
             if (cPlayerId === playerId) {
                 setMyCards((prev) => [...prev, card]);
             } else if (cPlayerId === "dealer") {
+                if (card == null) {
+                    setDealerCards((prev) => [...prev, "?"]);
+                } else 
                 setDealerCards((prev) => [...prev, card]);
             }
             else {
@@ -45,10 +62,18 @@ export function Room() {
                     [cPlayerId]: [...(prev[cPlayerId] || []), card],
                 }));
             }
-
         });
-        // connection.on("PlayerConnected", (pid) => console.log(`Jugador conectado: ${pid}`));
-        // connection.on("ReceiveMove", (pid, move) => console.log(`${pid} hizo ${move}`));
+        connection.on("PlayerTurn", (cPlayerId, status) => {
+            setPlayerTurn(cPlayerId);
+        })
+
+        connection.on("PlayerConnected", (pid) => {
+            console.log(`Jugador conectado: ${pid}`)
+            setPlayerCards((prev) => ({
+                ...prev,
+                [pid]: [],
+            }));
+        });
 
         connection.start().then(() => {
             console.log("Conectado a la sala");
@@ -72,6 +97,19 @@ export function Room() {
                         {pid}: {cards.join(", ")}
                     </span>
                 ))
+            }
+            {
+                playerTurn === playerId && (
+                    <>
+                        <button onClick={() => connection?.invoke("Hit",   roomId)}>Pedir carta</button>
+                        <button onClick={() => connection?.invoke("Stand", roomId)}>Plantarse</button>
+                    </>
+                )
+            }
+            {
+                playerTurn && (
+                    <span>Turno del jugador: {playerTurn}</span>
+                )
             }
         </div>
     )

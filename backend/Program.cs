@@ -14,11 +14,11 @@ builder.Services.AddCors(options =>
         policy.WithOrigins("http://localhost:5173")
               .AllowAnyHeader()
               .AllowAnyMethod()
-              .AllowCredentials(); // 👈 importante para SignalR
+              .AllowCredentials();
     });
 });
 
-builder.Services.AddSingleton<IGameEvents>(sp =>
+builder.Services.AddSingleton(sp =>
 {
     var hubContext = sp.GetRequiredService<IHubContext<BlackjackHub>>();
     return new GameEvents(hubContext);

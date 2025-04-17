@@ -2,6 +2,7 @@ public class Card
 {
     public required string Suit { get; set; }
     public required string Value { get; set; }
+    public bool IsVisible { get; set; } = true;
 
     public int[] GetNumericValues()
     {
@@ -13,5 +14,5 @@ public class Card
         };
     }
 
-    public override string ToString() => $"{Value}{Suit}";
+    public override string ToString() => IsVisible ? $"{Value}{Suit}" : "??";
 }

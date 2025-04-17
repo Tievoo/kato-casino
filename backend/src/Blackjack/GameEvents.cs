@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 
-public class GameEvents : IGameEvents
+public class GameEvents
 {
     private readonly IHubContext<BlackjackHub> _hubContext;
 
@@ -29,6 +29,18 @@ public class GameEvents : IGameEvents
         catch (Exception ex)
         {
             Console.WriteLine($"Error sending card to {playerId} in room {roomId}: {card}. {ex.Message}");
+        }
+    }
+
+    public async Task OnPlayerTurn(string playerId, string roomId, string status)
+    {
+        try
+        {
+            await _hubContext.Clients.Group(roomId).SendAsync("PlayerTurn", playerId, status);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error sending player turn to {playerId} in room {roomId}: {status}. {ex.Message}");
         }
     }
 }

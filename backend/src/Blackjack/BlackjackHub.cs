@@ -4,25 +4,10 @@ public class BlackjackHub : Hub
 {
     private readonly Manager _manager;
 
-    private Dictionary<string, string> _players = []; // Dictionary<connectionId, playerId> 
-    private Dictionary<string, string> _players_conn = []; // Dictionary<playerId, connectionId>
-
     public BlackjackHub(Manager manager)
     {
         _manager = manager;
     }
-
-    private void AddPlayer(string playerId, string connId)
-    {
-        if (_players_conn.ContainsKey(playerId))
-        {
-            string oldConnId = _players_conn[playerId];
-            _players.Remove(oldConnId);
-        }
-        _players_conn[playerId] = connId;
-        _players[connId] = playerId;
-    }
-
     public override async Task OnConnectedAsync()
     {
         var ctx = Context.GetHttpContext();
@@ -32,14 +17,11 @@ public class BlackjackHub : Hub
         if (string.IsNullOrEmpty(playerId) || string.IsNullOrEmpty(roomId)) return;
 
         var room = _manager.GetOrCreateRoom(roomId!);
-        AddPlayer(playerId!, Context.ConnectionId);
+        _manager.AddPlayer(playerId!, Context.ConnectionId);
         room.AddPlayer(playerId!);
+        await Clients.Group(room.Id).SendAsync("PlayerConnected", playerId);
         await Groups.AddToGroupAsync(Context.ConnectionId, room.Id);
-        await Clients.Caller.SendAsync("Welcome", new
-        {
-            message = $"Bienvenido {playerId} a la sala {room.Id}",
-            players = room.Players
-        });
+        await Clients.Caller.SendAsync("Welcome", room);
     }
 
     public async Task SendToRoom(string roomId, string method, object? data)
@@ -59,6 +41,20 @@ public class BlackjackHub : Hub
 
         await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
         await Clients.Caller.SendAsync("Welcome", $"Bienvenido {playerId} a la sala {roomId}");
+    }
+
+    public async Task Hit(string roomId)
+    {
+        var room = _manager.GetRoom(roomId);
+        if (room == null) return;
+        await room.Hit(_manager.GetPlayerId(Context.ConnectionId)!);
+    }
+
+    public async Task Stand(string roomId)
+    {
+        var room = _manager.GetRoom(roomId);
+        if (room == null) return;
+        await room.Stand(_manager.GetPlayerId(Context.ConnectionId)!);
     }
 
     public void StartGame(string roomId)
