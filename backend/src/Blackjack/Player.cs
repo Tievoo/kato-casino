@@ -1,9 +1,27 @@
+public enum PlayerStatus
+{
+    Betting,
+    BetsPlaced,
+    Deciding,
+    Bust,
+    Stand,
+    Blackjack,
+    Waiting
+}
+
 public class Player
 {
-    public required string Id { get; set; }
+    public required string UserId { get; set; }
+    public required string SeatId { get; set; }
+    // public required string RoomId { get; set; }
+    public string? Username { get; set; }
+    public string? ConnectionId { get; set; }
+    public int Bet { get; set; } = 0;
     public List<Card> Hand { get; set; } = [];
-    public bool IsStanding { get; set; } = false;
-    public bool IsBusted { get; set; } = false;
+    public PlayerStatus Status { get; set; } = PlayerStatus.Waiting;
+    public bool IsDealer { get; set; } = false;
+    public bool IsPlaying { get; set; } = false;
+
 
     public int CalculateBestScore()
     {
@@ -24,5 +42,18 @@ public class Player
             .Where(s => s <= 21)
             .DefaultIfEmpty(allSums.Min())
             .Max();
+    }
+
+    public int GetPayout(Player dealer)
+    {
+        var dealerScore = dealer.CalculateBestScore();
+        var playerScore = CalculateBestScore();
+
+        if (Status == PlayerStatus.Blackjack) return Bet + Bet * (3/2); // Player has blackjack
+        if (playerScore > 21 || Status == PlayerStatus.Bust || playerScore < dealerScore) return 0; // Player busts
+        if (dealerScore > 21 || dealer.Status == PlayerStatus.Bust || playerScore > dealerScore) return Bet*2; // Dealer busts
+        if (playerScore == dealerScore) return Bet; // Push
+
+        return 0; // Default case, should not happen
     }
 }

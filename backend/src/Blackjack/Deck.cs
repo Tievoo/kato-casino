@@ -4,7 +4,8 @@ public class Deck
     private static readonly string[] Values = 
         { "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A" };
 
-    private readonly Stack<Card> Cards;
+    private Stack<Card> Cards;
+    private readonly List<Card> UsedCards = [];
 
     public Deck(int numberOfDecks = 1)
     {
@@ -25,14 +26,19 @@ public class Deck
         Cards = new Stack<Card>(cards.OrderBy(_ => Guid.NewGuid()));
     }
 
-    public Card Draw() => Cards.Pop();
+    public Card Draw() {
+        var card = Cards.Pop();
+        UsedCards.Add(card);
+        return card;
+    }
 
     public void Shuffle()
     {
-        var cards = Cards.ToArray();
+        var shuffledCards = UsedCards.Concat(Cards).OrderBy(_ => Guid.NewGuid());
         Cards.Clear();
-        foreach (var card in cards.OrderBy(_ => Guid.NewGuid()))
-            Cards.Push(card);
+        UsedCards.Clear();
+
+        Cards = new Stack<Card>(shuffledCards);
     }
 
     public int Remaining => Cards.Count;

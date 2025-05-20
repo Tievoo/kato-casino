@@ -9,7 +9,7 @@ public class Card
         return Value switch
         {
             "A" => [1, 11],
-            "J" or "Q" or "K" => new[] { 10 },
+            "J" or "Q" or "K" => [10],
             _ => [int.Parse(Value)]
         };
     }
