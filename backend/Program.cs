@@ -1,5 +1,3 @@
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.SignalR;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -20,25 +18,25 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddSingleton(sp =>
 {
-    var hubContext = sp.GetRequiredService<IHubContext<BlackjackHub>>();
+    var hubContext = sp.GetRequiredService<IHubContext<GameHub>>();
     return new GameEvents(hubContext);
 });
 
-builder.Services.AddSingleton<Manager>();
+builder.Services.AddSingleton<BlackjackManager>();
 
 var app = builder.Build();
 
 
 app.UseCors();
 
-app.MapGet("/", () => "Hello World!");
+app.MapGet("/", () => "Hello World");
 
-app.MapGet("/blackjack/rooms", (Manager manager) =>
+app.MapGet("/blackjack/rooms", (BlackjackManager manager) =>
 {
-    var rooms = manager.GetAllRooms();
+    string[] rooms = [];
     return Results.Ok(rooms);
 });
 
-app.MapHub<BlackjackHub>("/blackjack");
+app.MapHub<GameHub>("/hub");
 
 app.Run();

@@ -9,13 +9,13 @@ public enum PlayerStatus
     Waiting
 }
 
-public class Player
+public class Player(string username, string connectionId)
 {
     public required string UserId { get; set; }
-    public required string SeatId { get; set; }
+    // public required string SeatId { get; set; }
     // public required string RoomId { get; set; }
-    public string? Username { get; set; }
-    public string? ConnectionId { get; set; }
+    public string Username { get; set; } = username;
+    public string ConnectionId { get; set; } = connectionId;
     public int Bet { get; set; } = 0;
     public List<Card> Hand { get; set; } = [];
     public PlayerStatus Status { get; set; } = PlayerStatus.Waiting;
