@@ -1,0 +1,1 @@
+public record JoinRoomPayload(string RoomId, string Username);

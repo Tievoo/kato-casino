@@ -18,4 +18,9 @@ public class GameEvents(IHubContext<GameHub> hubContext)
     {
         return _hubContext.Clients.Client(connectionId).SendAsync(method, data);
     }
+
+    public Task AddToGroup(string connectionId, string groupName)
+    {
+        return _hubContext.Groups.AddToGroupAsync(connectionId, groupName);
+    }
 }

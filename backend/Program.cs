@@ -31,6 +31,17 @@ app.UseCors();
 
 app.MapGet("/", () => "Hello World");
 
+app.MapPost("/blackjack/rooms", (BlackjackManager manager, HttpContext context) =>
+{
+    string roomId = manager.CreateRoom();
+    if (roomId == null)
+    {
+        context.Response.StatusCode = 500;
+        return Results.Problem("Error creating room");
+    }
+    return Results.Ok(new { roomId });
+});
+
 app.MapGet("/blackjack/rooms", (BlackjackManager manager) =>
 {
     string[] rooms = [];

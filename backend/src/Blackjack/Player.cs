@@ -11,7 +11,7 @@ public enum PlayerStatus
 
 public class Player(string username, string connectionId)
 {
-    public required string UserId { get; set; }
+    // public required string UserId { get; set; }
     // public required string SeatId { get; set; }
     // public required string RoomId { get; set; }
     public string Username { get; set; } = username;
