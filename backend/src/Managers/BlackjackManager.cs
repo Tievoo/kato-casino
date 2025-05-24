@@ -30,5 +30,17 @@ public class BlackjackManager : CommandManager
         return Task.CompletedTask;
 
     }
+
+    public Task JoinTable(string connectionId, JoinTablePayload payload)
+    {
+        string roomId = payload.RoomId;
+
+        if (_rooms.TryGetValue(roomId, out Room? room))
+        {
+            room.AddPlayer(new Player(connectionId, payload.Username), payload.SeatIndex);
+        }
+
+        return Task.CompletedTask;
+    }
 }
 
