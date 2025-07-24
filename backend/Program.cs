@@ -18,7 +18,7 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddSingleton(sp =>
 {
-    var hubContext = sp.GetRequiredService<IHubContext<GameHub>>();
+    var hubContext = sp.GetRequiredService<IHubContext<BlackjackHub>>();
     return new GameEvents(hubContext);
 });
 
@@ -44,10 +44,10 @@ app.MapPost("/blackjack/rooms", (BlackjackManager manager, HttpContext context) 
 
 app.MapGet("/blackjack/rooms", (BlackjackManager manager) =>
 {
-    string[] rooms = [];
+    IEnumerable<object> rooms = manager.GetRooms();
     return Results.Ok(rooms);
 });
 
-app.MapHub<GameHub>("/hub");
+app.MapHub<BlackjackHub>("/blackjack");
 
 app.Run();

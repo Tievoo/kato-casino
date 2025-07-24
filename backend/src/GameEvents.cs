@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.SignalR;
 
-public class GameEvents(IHubContext<GameHub> hubContext)
+public class GameEvents(IHubContext<BlackjackHub> hubContext)
 {
-    private readonly IHubContext<GameHub> _hubContext = hubContext;
+    private readonly IHubContext<BlackjackHub> _hubContext = hubContext;
 
     public Task SendToRoom(string roomId, string method, object? data)
     {

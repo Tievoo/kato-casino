@@ -1,14 +1,30 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { Room } from "../../types/blackjack";
 
 export function Home() {
     const [rooms, setRooms] = useState<Room[]>([]);
+    const navigate = useNavigate();
 
     async function fetchRooms() {
         const response = await fetch("http://localhost:5106/blackjack/rooms");
         const data = await response.json();
         setRooms(data);
+    }
+
+    async function createRoom() {
+        const response = await fetch("http://localhost:5106/blackjack/rooms", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            }
+        });
+        if (response.ok) {
+            const newRoom: { roomId: string } = await response.json();
+            navigate(`/blackjack/room/${newRoom.roomId}`);
+        } else {
+            console.error("Error creating room");
+        }
     }
 
     useEffect(() => {
@@ -37,9 +53,9 @@ export function Home() {
                     <p>No hay salas disponibles.</p>
                 )
             }
-            <Link to="/blackjack/room" className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition duration-200">
+            <button onClick={createRoom} className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition duration-200">
                 Crear Sala
-            </Link>
+            </button>
         </div>
     );
 }

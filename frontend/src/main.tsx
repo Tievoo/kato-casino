@@ -15,7 +15,7 @@ const router = createBrowserRouter([
     element: <BlackjackHome />,
   },
   {
-    path: "/blackjack/room/:roomId?",
+    path: "/blackjack/room/:roomId",
     element: <BlackjackRoom />,
   }
 ]);

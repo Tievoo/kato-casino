@@ -8,20 +8,13 @@ type Hand = string[];
 
 export function Room() {
     const params = useParams();
-    const roomId = useMemo(
-        () => {
-            console.log("params", params);
-            return params.roomId || crypto.randomUUID()
-        },
-        [params]
-    );
+    const roomId = useMemo(() => params.roomId, [params.roomId]);
     const playerId = useMemo(() => localStorage.getItem("playerId") || crypto.randomUUID(), []);
     const [dealerCards, setDealerCards] = useState<string[]>([]);
 
     const [players, setPlayers] = useState<Record<string, { hand: Hand, status: Status}>>({});
-
+    const [seats, setSeats] = useState<(null | { username: string; connectionId: string })[]>([null, null, null, null, null, null]);
     const [playerTurn, setPlayerTurn] = useState<string | null>(null);
-
     const [connection, setConnection] = useState<HubConnection>();
 
     const calculateTotal = (hand: Hand) => {
@@ -82,8 +75,9 @@ export function Room() {
 
         connection.on("Welcome", (room) => {
             console.log("Bienvenido", room);
-            setPlayers(room.players);
-            setPlayerTurn(room.playerTurn);
+            setPlayers(room.players || {});
+            setPlayerTurn(room.playerTurn || null);
+            if (room.seats) setSeats(room.seats);
         });
         connection.on("CardDealt", onCardDealt);
         connection.on("PlayerTurn", (cPlayerId) => {
@@ -136,6 +130,27 @@ export function Room() {
         <div className="flex flex-col">
             <button onClick={() => connection?.invoke("StartGame", roomId)}>Start</button>
             <span>Cartas del dealer: {dealerCards.join(", ")}</span>
+            <span>Selecciona tu asiento:</span>
+            <div className="flex gap-2 mb-4">
+                {seats.map((seat, i) => (
+                    <button
+                        key={i}
+                        className={`border px-4 py-2 rounded ${seat ? "bg-gray-300 cursor-not-allowed" : "hover:bg-blue-200"}`}
+                        onClick={() => {
+                            if (connection && !seat) {
+                                connection.invoke("JoinTable", {
+                                    roomId,
+                                    username: playerId, // using playerId as username for now
+                                    seatIndex: i
+                                });
+                            }
+                        }}
+                        disabled={!!seat}
+                    >
+                        {seat ? `${seat.username === playerId ? "Tú" : seat.username}` : `Asiento ${i + 1}`}
+                    </button>
+                ))}
+            </div>
             <span>Jugadores:</span>
             {
                 Object.entries(players).map(([pid, player]) => (
