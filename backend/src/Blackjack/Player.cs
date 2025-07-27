@@ -1,3 +1,6 @@
+using System.Text.Json.Serialization;
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum PlayerStatus
 {
     Betting,
@@ -17,6 +20,7 @@ public class Player(string username, string connectionId)
     public string Username { get; set; } = username;
     public string ConnectionId { get; set; } = connectionId;
     public int Bet { get; set; } = 0;
+    public int SeatIndex { get; set; } = -1;
     public List<Card> Hand { get; set; } = [];
     public PlayerStatus Status { get; set; } = PlayerStatus.Waiting;
     public bool IsDealer { get; set; } = false;

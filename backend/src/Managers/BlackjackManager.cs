@@ -2,12 +2,26 @@ public class BlackjackManager : CommandManager
 {
     private readonly GameEvents _gameEvents;
     private readonly Dictionary<string, Room> _rooms = [];
+    private readonly Dictionary<string, string> _players = new();
 
     public BlackjackManager(GameEvents gameEvents)
     {
         _gameEvents = gameEvents;
         Register<JoinRoomPayload>("joinRoom", JoinRoom);
         Register<JoinTablePayload>("joinTable", JoinTable);
+        Register<PlaceBetPayload>("placeBet", PlaceBet);
+        Register<PlayerActionPayload>("playerAction", PlayerAction);
+    }
+
+    public void AddPlayer(string connectionId, string username)
+    {
+        if (_players.TryGetValue(connectionId, out var existingUsername))
+        {
+            return;
+        }
+
+        _players.Add(connectionId, username);
+        _gameEvents.AddToGroup(connectionId, "blackjack");
     }
 
     public string CreateRoom()
@@ -24,27 +38,36 @@ public class BlackjackManager : CommandManager
         return _rooms.Values.Select(room => new
         {
             id = room.Id,
-            players = room.Seats.Length,
-            status = room.State.ToString()
+            players = room.Seats.Count(s => s != null),
+            status = room.Status.ToString()
         });
     }
 
     public Task JoinRoom(string connectionId, JoinRoomPayload payload)
     {
-        string roomId = payload.RoomId;
+        string roomId = payload.roomId;
+
+        AddPlayer(connectionId, payload.username);
 
         if (_rooms.TryGetValue(roomId, out Room? room))
         {
             _gameEvents.AddToGroup(connectionId, roomId);
             // Build seat info
-            var seats = room.Seats.Select(seat => seat == null ? null : new {
-                username = seat.Username,
-                connectionId = seat.ConnectionId
-            }).ToArray();
-            _gameEvents.SendToPlayer(connectionId, "Welcome", new {
+            var seats = room.Seats;
+            _gameEvents.SendToPlayer(connectionId, "Welcome", new
+            {
                 roomId = room.Id,
-                seats,
-                status = room.State.ToString()
+                seats = seats.Select((s, index) => s != null ? new
+                {
+                    username = s.Username,
+                    seatIndex = index,
+                    status = s.Status.ToString(),
+                    hand = s.Hand.Select(c => c.ToString()).ToList(),
+                    bet = s.Bet
+                } : null).ToList(),
+                status = room.Status.ToString(),
+                playerTurn = room.currentPlayerIndex,
+                dealerCards = room.Dealer.Hand.Select(c => c.ToString()).ToList(),
             });
         }
 
@@ -53,11 +76,70 @@ public class BlackjackManager : CommandManager
 
     public Task JoinTable(string connectionId, JoinTablePayload payload)
     {
-        string roomId = payload.RoomId;
+        string roomId = payload.roomId;
+        _players.TryGetValue(connectionId, out var existingUsername);
+
+        if (existingUsername == null)
+        {
+            _gameEvents.SendToPlayer(connectionId, "error", "You must join a room first.");
+            return Task.CompletedTask;
+        }
 
         if (_rooms.TryGetValue(roomId, out Room? room))
         {
-            room.AddPlayer(new Player(connectionId, payload.Username), payload.SeatIndex);
+            room.AddPlayer(new Player(existingUsername, connectionId), payload.seatIndex);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task PlaceBet(string connectionId, PlaceBetPayload payload)
+    {
+        _players.TryGetValue(connectionId, out var playerId);
+        if (playerId == null)
+        {
+            _gameEvents.SendToPlayer(connectionId, "error", "You must join a room first.");
+            return Task.CompletedTask;
+        }
+
+        if (_rooms.TryGetValue(payload.roomId, out Room? room))
+        {
+            if (!room.SeatBelongsToPlayer(payload.seatIndex, playerId))
+            {
+                _gameEvents.SendToPlayer(connectionId, "error", "You are not seated at this table.");
+                return Task.CompletedTask;
+            }
+            room.PlaceBet(payload.seatIndex, payload.amount);
+        }
+        else
+        {
+            _gameEvents.SendToPlayer(connectionId, "error", "Room not found.");
+        }
+
+        return Task.CompletedTask;
+    }
+    
+    public Task PlayerAction(string connectionId, PlayerActionPayload payload)
+    {
+        _players.TryGetValue(connectionId, out var playerId);
+        if (playerId == null)
+        {
+            _gameEvents.SendToPlayer(connectionId, "error", "You must join a room first.");
+            return Task.CompletedTask;
+        }
+
+        if (_rooms.TryGetValue(payload.roomId, out Room? room))
+        {
+            if (!room.SeatBelongsToPlayer(payload.seatIndex, playerId))
+            {
+                _gameEvents.SendToPlayer(connectionId, "error", "You are not seated at this table.");
+                return Task.CompletedTask;
+            }
+            room.PlayerAction(payload.seatIndex, payload.action);
+        }
+        else
+        {
+            _gameEvents.SendToPlayer(connectionId, "error", "Room not found.");
         }
 
         return Task.CompletedTask;

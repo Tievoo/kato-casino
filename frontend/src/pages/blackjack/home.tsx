@@ -39,9 +39,9 @@ export function Home() {
                 rooms.length > 0 ? (
                     <ul className="list-disc list-inside">
                         {rooms.map((room) => (
-                            <div className="">
+                            <div className="mb-3">
                                 <li key={room.id} className="mb-2">
-                                    {room.id} - {Object.keys(room.players).length} jugadores
+                                    {room.id} - {room.players} jugadores - Estado: {room.status}
                                 </li>
                                 <Link to={`/blackjack/room/${room.id}`} className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition duration-200">
                                     Unirse a la sala

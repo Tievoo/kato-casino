@@ -1,177 +1,152 @@
-import { HubConnection, HubConnectionBuilder } from "@microsoft/signalr";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useParams } from "react-router";
+import { Player, PlayerStatus, RoomState, RoomStatus } from "../../types/blackjack";
+import { useBlackjack } from "../../hooks/useBlackjack";
 
-type Status = "playing" | "stand" | "bust" | "waiting" | "win" | "lose" | "push";
-
-type Hand = string[];
+function getTotal(hand: string[]) {
+    return hand.reduce((total, card) => {
+        const value = card.slice(0, -2); // El emoji cuenta como 2 caracteres.
+        if (value === "A") {
+            return total + (total + 11 > 21 ? 1 : 11); // Asume que el As vale 11 a menos que cause bust
+        };
+        if (["K", "Q", "J"].includes(value)) return total + 10;
+        return total + parseInt(value, 10);
+    }, 0);
+}
 
 export function Room() {
     const params = useParams();
     const roomId = useMemo(() => params.roomId, [params.roomId]);
-    const playerId = useMemo(() => localStorage.getItem("playerId") || crypto.randomUUID(), []);
-    const [dealerCards, setDealerCards] = useState<string[]>([]);
+    const playerId = useMemo(() => localStorage.getItem("playerId") || crypto.randomUUID().slice(0, 8), []);
 
-    const [players, setPlayers] = useState<Record<string, { hand: Hand, status: Status}>>({});
-    const [seats, setSeats] = useState<(null | { username: string; connectionId: string })[]>([null, null, null, null, null, null]);
-    const [playerTurn, setPlayerTurn] = useState<string | null>(null);
-    const [connection, setConnection] = useState<HubConnection>();
+    const [roomState, setRoomState] = useState<RoomState | null>(null);
+    const [betAmount, setBetAmount] = useState<number>(10); // Apuesta por defecto
+    const { connection } = useBlackjack(playerId, roomId, setRoomState);
 
-    const calculateTotal = (hand: Hand) => {
-        let total = 0;
-        let aces = 0;
-        hand.forEach((card) => {
-            const value = card[0]
-            if (value === "A") {
-                total += 11;
-                aces += 1;
-            } else if (["K", "Q", "J"].includes(value)) {
-                total += 10;
-            } else {
-                total += parseInt(value);
-            }
-        });
-        while (total > 21 && aces > 0) {
-            total -= 10;
-            aces -= 1;
-        }
-        return total;
-    }
-
-    const onCardDealt = (cPlayerId: string, card: string) => {
-        console.log("CardDealt", cPlayerId, card);
-        if (cPlayerId === "dealer") {
-            setDealerCards((prev) => {
-                if (prev.length == 2 && prev[1] == "??") {
-                    return [prev[0], card]
-                }
-                return [...prev, card]
-            })
-        }
-        else {
-            setPlayers((prev) => {
-                const newPlayers = { ...prev };
-                if (newPlayers[cPlayerId]) {
-                    newPlayers[cPlayerId].hand.push(card);
-                } else {
-                    newPlayers[cPlayerId] = { hand: [card], status: "waiting" };
-                }
-                return newPlayers;
-            })
+    const handleJoinTable = (seatIndex: number) => {
+        if (connection && !roomState?.seats[seatIndex]) {
+            connection.invoke("HandleCommand", "joinTable", {
+                roomId,
+                username: playerId,
+                seatIndex
+            });
         }
     }
 
-    useEffect(() => {
-        console.log("roomId", roomId);
-        if (!roomId) return;
+    const action = (seatIndex: number, action: string) => {
+        if (connection) {
+            connection.invoke("HandleCommand", "playerAction", {
+                roomId,
+                seatIndex,
+                action
+            });
+        }
+    }
 
-        localStorage.setItem("playerId", playerId);
+    if (!roomState) return <div>Cargando...</div>;
 
-        const connection = new HubConnectionBuilder()
-            .withUrl(
-                `http://localhost:5106/blackjack?playerId=${playerId}&roomId=${roomId}`
-            )
-            .build();
+    // Obtener todos los asientos del jugador actual
+    const currentPlayerSeats = roomState.seats.filter((seat): seat is Player =>
+        seat !== null && seat.username === playerId
+    );
+    const canBet = roomState.status === RoomStatus.WaitingForBets &&
+        currentPlayerSeats.some(seat => [PlayerStatus.Betting, PlayerStatus.BetsPlaced].includes(seat.status));
 
-        connection.on("Welcome", (room) => {
-            console.log("Bienvenido", room);
-            setPlayers(room.players || {});
-            setPlayerTurn(room.playerTurn || null);
-            if (room.seats) setSeats(room.seats);
-        });
-        connection.on("CardDealt", onCardDealt);
-        connection.on("PlayerTurn", (cPlayerId) => {
-            setPlayerTurn(cPlayerId);
-        })
+    const myTurn = currentPlayerSeats.some(seat => seat.seatIndex === roomState.playerTurn);
 
-        connection.on("PlayerConnected", (pid) => {
-            console.log(`Jugador conectado: ${pid}`)
-            setPlayers((prev) => {
-                const newPlayers = { ...prev };
-                newPlayers[pid] = { hand: [], status: "waiting" };
-                return newPlayers;
-            })
-        });
-
-        connection.on("PlayerDisconnected", (pid) => {
-            console.log(`Jugador desconectado: ${pid}`)
-            setPlayers((prev) => {
-                const newPlayers = { ...prev };
-                delete newPlayers[pid];
-                return newPlayers;
-            })
-        });
-
-        connection.on("RoundOver", (playerWinningStatus: Record<string, Status>) => {
-            console.log("Fin de la ronda", playerWinningStatus);
-            setPlayers((prev) => {
-                const newPlayers = { ...prev };
-                Object.entries(playerWinningStatus).forEach(([pid, status]) => {
-                    if (newPlayers[pid]) {
-                        newPlayers[pid].status = status;
-                    }
-                })
-                return newPlayers;
-            })
-
-        })
-
-        connection.start().then(() => {
-            console.log("Conectado a la sala");
-            setConnection(connection);
-            if (!params.roomId) {
-                // Move to /room/{roomId}
-                window.history.replaceState({}, "", `/blackjack/room/${roomId}`);
-            }
-        });
-    }, [roomId]);
-
-    return(
+    return (
         <div className="flex flex-col">
-            <button onClick={() => connection?.invoke("StartGame", roomId)}>Start</button>
-            <span>Cartas del dealer: {dealerCards.join(", ")}</span>
+            <span>Cartas del dealer: {(roomState.dealerCards || []).join(", ")}</span>
+            <span className="mb-6">Total del dealer: {getTotal(roomState.dealerCards)}</span>
+            {/* Sección de apuestas */}
+            {canBet && (
+                <div className="border p-4 mb-4 bg-yellow-50">
+                    <h3 className="font-bold mb-2">¡Es hora de apostar!</h3>
+                    <p className="text-sm text-gray-600 mb-2">
+                        Tienes {currentPlayerSeats.length} asiento(s). Selecciona uno para apostar:
+                    </p>
+
+                    {/* Mostrar cada asiento que puede apostar */}
+                    {currentPlayerSeats
+                        .filter(seat => [PlayerStatus.Betting, PlayerStatus.BetsPlaced].includes(seat.status))
+                        .map(seat => (
+                            <div key={seat.seatIndex} className="border p-3 mb-3 bg-white rounded text-black">
+                                <h4 className="font-semibold mb-2">Asiento {seat.seatIndex + 1}</h4>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <label htmlFor={`betAmount-${seat.seatIndex}`}>Monto a apostar:</label>
+                                    <input
+                                        id={`betAmount-${seat.seatIndex}`}
+                                        type="number"
+                                        min="1"
+                                        value={betAmount}
+                                        onChange={(e) => setBetAmount(Number(e.target.value))}
+                                        className="border px-2 py-1 w-20"
+                                    />
+                                    <button
+                                        onClick={() => {
+                                            if (connection && betAmount > 0) {
+                                                connection.invoke("HandleCommand", "placeBet", {
+                                                    roomId,
+                                                    seatIndex: seat.seatIndex,
+                                                    amount: betAmount
+                                                });
+                                            }
+                                        }}
+                                        disabled={betAmount <= 0}
+                                        className="bg-green-500 text-white px-4 py-1 rounded hover:bg-green-600 disabled:bg-gray-300"
+                                    >
+                                        Apostar
+                                    </button>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setBetAmount(5)} className="bg-blue-500 text-white px-2 py-1 rounded text-sm">$5</button>
+                                    <button onClick={() => setBetAmount(10)} className="bg-blue-500 text-white px-2 py-1 rounded text-sm">$10</button>
+                                    <button onClick={() => setBetAmount(25)} className="bg-blue-500 text-white px-2 py-1 rounded text-sm">$25</button>
+                                    <button onClick={() => setBetAmount(50)} className="bg-blue-500 text-white px-2 py-1 rounded text-sm">$50</button>
+                                </div>
+                            </div>
+                        ))}
+                </div>
+            )}
+            <span>Jugadores:</span>
+            {
+                roomState.seats.filter(Boolean).map((seat, i) => (
+                    <div key={i} className="border p-2 mb-2 rounded">
+                        <div>
+                            <strong>{seat?.username === playerId ? "Yo" : seat?.username}</strong>
+                            <span className="ml-2 text-sm text-gray-600">({seat?.status})</span>
+                        </div>
+                        <div>Cartas: {seat?.hand.join(", ") || "Sin cartas"}</div>
+                        <div>Total: {seat ? getTotal(seat.hand) : 0}</div>
+                        <div>Apuesta: ${seat?.bet || 0}</div>
+                    </div>
+                ))
+            }
+            {
+                myTurn && (
+                    <div className="flex flex-row gap-3 my-1">
+                        <button onClick={() => action(roomState.playerTurn, "hit")}>Pedir carta</button>
+                        <button onClick={() => action(roomState.playerTurn, "stand")}>Plantarse</button>
+                    </div>
+                )
+            }
+
             <span>Selecciona tu asiento:</span>
             <div className="flex gap-2 mb-4">
-                {seats.map((seat, i) => (
+                {roomState?.seats.map((seat, i) => (
                     <button
                         key={i}
-                        className={`border px-4 py-2 rounded ${seat ? "bg-gray-300 cursor-not-allowed" : "hover:bg-blue-200"}`}
-                        onClick={() => {
-                            if (connection && !seat) {
-                                connection.invoke("JoinTable", {
-                                    roomId,
-                                    username: playerId, // using playerId as username for now
-                                    seatIndex: i
-                                });
-                            }
-                        }}
+                        className={`border border-transparent transition-colors px-4 py-2 font-medium rounded-lg bg-[#1a1a1a] disabled:opacity-50 ${seat ? "cursor-not-allowed" : "cursor-pointer hover:border-blue-500"}`}
+                        onClick={() => handleJoinTable(i)}
                         disabled={!!seat}
                     >
                         {seat ? `${seat.username === playerId ? "Tú" : seat.username}` : `Asiento ${i + 1}`}
                     </button>
                 ))}
             </div>
-            <span>Jugadores:</span>
-            {
-                Object.entries(players).map(([pid, player]) => (
-                    <span key={pid}>
-                        {pid === playerId ? "Yo" : pid}: {player.hand.join(", ")} ({calculateTotal(player.hand)}) - {player.status}
-                    </span>
-                ))
-            }
-            {
-                playerTurn === playerId && (
-                    <>
-                        <button onClick={() => connection?.invoke("Hit",   roomId)}>Pedir carta</button>
-                        <button onClick={() => connection?.invoke("Stand", roomId)}>Plantarse</button>
-                    </>
-                )
-            }
-            {
-                playerTurn && playerTurn !== "dealer" && (
-                    <span>Turno del jugador: {playerTurn}</span>
-                )
-            }
+
+            <span>Turno del jugador: {roomState.playerTurn === -1 ? "Nadie" : roomState.seats[roomState.playerTurn]?.username}</span>
+            <span>Room Status: {roomState.status}</span>
         </div>
     )
 }
