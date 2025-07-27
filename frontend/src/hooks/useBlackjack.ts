@@ -17,7 +17,7 @@ export function useBlackjack(playerId: string, roomId: string | undefined, setRo
             )
             .build();
 
-        connection.on("Welcome", (room) => {
+        connection.on("roomState", (room) => {
             console.log("Bienvenido", room);
             setRoomState(room);
         });

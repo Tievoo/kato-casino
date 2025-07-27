@@ -4,14 +4,28 @@ import { Player, PlayerStatus, RoomState, RoomStatus } from "../../types/blackja
 import { useBlackjack } from "../../hooks/useBlackjack";
 
 function getTotal(hand: string[]) {
-    return hand.reduce((total, card) => {
+    let total = 0;
+    let aces = 0;
+    
+    for (const card of hand) {
         const value = card.slice(0, -2); // El emoji cuenta como 2 caracteres.
         if (value === "A") {
-            return total + (total + 11 > 21 ? 1 : 11); // Asume que el As vale 11 a menos que cause bust
-        };
-        if (["K", "Q", "J"].includes(value)) return total + 10;
-        return total + parseInt(value, 10);
-    }, 0);
+            aces++;
+        } else if (["K", "Q", "J"].includes(value)) {
+            total += 10;
+        } else {
+            total += parseInt(value, 10);
+        }
+    }
+    
+    total += aces;
+    
+    while (aces > 0 && total + 10 <= 21) {
+        total += 10;
+        aces--;
+    }
+    
+    return total;
 }
 
 export function Room() {
@@ -125,8 +139,8 @@ export function Room() {
             {
                 myTurn && (
                     <div className="flex flex-row gap-3 my-1">
-                        <button onClick={() => action(roomState.playerTurn, "hit")}>Pedir carta</button>
-                        <button onClick={() => action(roomState.playerTurn, "stand")}>Plantarse</button>
+                        <button className={`px-4 py-2 font-medium rounded-lg bg-[#1a1a1a] cursor-pointer`} onClick={() => action(roomState.playerTurn, "hit")}>Pedir carta</button>
+                        <button className={`px-4 py-2 font-medium rounded-lg bg-[#1a1a1a] cursor-pointer`} onClick={() => action(roomState.playerTurn, "stand")}>Plantarse</button>
                     </div>
                 )
             }

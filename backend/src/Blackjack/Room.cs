@@ -28,6 +28,25 @@ public class Room(GameEvents events, string id)
     static readonly int MIN_PLAYERS = 1;
     static readonly int MS_DELAY = 500;
 
+    public object RoomState()
+    {
+        return new
+        {
+            roomId = Id,
+            seats = Seats.Select((s, index) => s != null ? new
+            {
+                username = s.Username,
+                seatIndex = index,
+                status = s.Status.ToString(),
+                hand = s.Hand.Select(c => c.ToString()).ToList(),
+                bet = s.Bet
+            } : null).ToList(),
+            status = Status.ToString(),
+            playerTurn = currentPlayerIndex,
+            dealerCards = Dealer.Hand.Select(c => c.ToString()).ToList(),
+        };
+    }
+
     public void AddPlayer(Player player, int seatIndex)
     {
 
@@ -88,7 +107,7 @@ public class Room(GameEvents events, string id)
         Events.SendToRoom(Id, "betPlaced", new
         {
             seatIndex,
-            amount
+            amount = Seats[seatIndex].Bet,
         });
     }
 
@@ -130,18 +149,20 @@ public class Room(GameEvents events, string id)
         // Primera carta
         foreach (var seat in Seats)
         {
-            if (seat != null)
+            if (seat == null) continue;
+            if (seat.Status != PlayerStatus.BetsPlaced || seat.Bet <= 0)
             {
-                Card card = Deck.Draw();
-                seat.Hand.Add(card);
-                Events.SendToRoom(Id, "cardDealt", new
-                {
-                    seatIndex = Array.IndexOf(Seats, seat),
-                    card = card.ToString()
-                });
-                // MS_DELAY ms timer
-                Task.Delay(MS_DELAY).Wait(); // Simulate delay for dealing cards
+                ChangeOnePlayerStatus(seat.SeatIndex, PlayerStatus.Waiting);
+                continue;
             }
+            Card card = Deck.Draw();
+            seat.Hand.Add(card);
+            Events.SendToRoom(Id, "cardDealt", new
+            {
+                seatIndex = Array.IndexOf(Seats, seat),
+                card = card.ToString()
+            });
+            Task.Delay(MS_DELAY).Wait(); // Simulate delay for dealing cards
         }
 
         Card dealerCard = Deck.Draw();
@@ -155,17 +176,20 @@ public class Room(GameEvents events, string id)
         // Segunda carta
         foreach (var seat in Seats)
         {
-            if (seat != null)
+            if (seat == null) continue;
+            if (seat.Status != PlayerStatus.BetsPlaced || seat.Bet <= 0)
             {
-                Card card = Deck.Draw();
-                seat.Hand.Add(card);
-                Events.SendToRoom(Id, "cardDealt", new
-                {
-                    seatIndex = Array.IndexOf(Seats, seat),
-                    card = card.ToString()
-                });
-                Task.Delay(MS_DELAY).Wait(); // Simulate delay for dealing cards
+                ChangeOnePlayerStatus(seat.SeatIndex, PlayerStatus.Waiting);
+                continue;
             }
+            Card card = Deck.Draw();
+            seat.Hand.Add(card);
+            Events.SendToRoom(Id, "cardDealt", new
+            {
+                seatIndex = Array.IndexOf(Seats, seat),
+                card = card.ToString()
+            });
+            Task.Delay(MS_DELAY).Wait(); // Simulate delay for dealing cards
         }
 
         dealerCard = Deck.Draw();
@@ -184,6 +208,18 @@ public class Room(GameEvents events, string id)
     {
         Status = newStatus;
         Events.SendToRoom(Id, "roomStatus", Status);
+    }
+
+    public void ChangeOnePlayerStatus(int seatIndex, PlayerStatus newStatus)
+    {
+        if (Seats[seatIndex] == null) return;
+
+        Seats[seatIndex].Status = newStatus;
+        Events.SendToRoom(Id, "playerStatus", new
+        {
+            seatIndex,
+            status = newStatus.ToString()
+        });
     }
 
     public void ChangePlayersStatus(PlayerStatus newStatus)
@@ -205,7 +241,22 @@ public class Room(GameEvents events, string id)
     public void StartPlaying()
     {
         ChangeStatus(RoomStatus.Playing);
-        ChangePlayersStatus(PlayerStatus.Deciding);
+        // Grab every player with a bet and BetsPlaced status and make them deciding. Else, waiting.
+        for (int i = 0; i < Seats.Length; i++)
+        {
+            if (Seats[i] != null)
+            {
+                if (Seats[i].Status == PlayerStatus.BetsPlaced && Seats[i].Bet > 0)
+                {
+                    ChangeOnePlayerStatus(i, PlayerStatus.Deciding);
+                }
+                else
+                {
+                    ChangeOnePlayerStatus(i, PlayerStatus.Waiting);
+                }
+            }
+        }
+        
         currentPlayerIndex = Seats.ToList().FindIndex(s => s != null && s.Status == PlayerStatus.Deciding);
         Events.SendToRoom(Id, "playerTurn", new
         {
@@ -232,11 +283,11 @@ public class Room(GameEvents events, string id)
                 Stand(seatIndex);
                 break;
             case "double":
-                // Double(seatIndex);
-                // break;
+            // Double(seatIndex);
+            // break;
             case "surrender":
-                // Surrender(seatIndex);
-                // break;
+            // Surrender(seatIndex);
+            // break;
             default:
                 Events.SendToPlayer(Seats[seatIndex].ConnectionId, "invalidAction", null);
                 break;
@@ -357,11 +408,34 @@ public class Room(GameEvents events, string id)
 
         // CalculateResults();
         Console.WriteLine("Dealer has finished their turn, calculating results...");
+        Restart();
     }
-    
+
     public bool SeatBelongsToPlayer(int seatIndex, string playerId)
     {
         return Seats[seatIndex]?.Username == playerId;
     }
 
+    public void Restart()
+    {
+        foreach (var seat in Seats)
+        {
+            if (seat != null)
+            {
+                seat.Hand.Clear();
+                seat.Bet = 0;
+                seat.Status = PlayerStatus.Waiting;
+            }
+        }
+        Dealer.Hand.Clear();
+        Dealer.Status = PlayerStatus.Waiting;
+        Deck = new Deck();
+        currentPlayerIndex = -1;
+        Status = RoomStatus.WaitingForPlayers;
+        Events.SendToRoom(Id, "roomState", RoomState());
+        if (Seats.Count(s => s != null) >= MIN_PLAYERS)
+        {
+            WaitForBets();
+        }
+    }
 }

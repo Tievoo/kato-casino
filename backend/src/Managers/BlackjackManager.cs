@@ -54,21 +54,7 @@ public class BlackjackManager : CommandManager
             _gameEvents.AddToGroup(connectionId, roomId);
             // Build seat info
             var seats = room.Seats;
-            _gameEvents.SendToPlayer(connectionId, "Welcome", new
-            {
-                roomId = room.Id,
-                seats = seats.Select((s, index) => s != null ? new
-                {
-                    username = s.Username,
-                    seatIndex = index,
-                    status = s.Status.ToString(),
-                    hand = s.Hand.Select(c => c.ToString()).ToList(),
-                    bet = s.Bet
-                } : null).ToList(),
-                status = room.Status.ToString(),
-                playerTurn = room.currentPlayerIndex,
-                dealerCards = room.Dealer.Hand.Select(c => c.ToString()).ToList(),
-            });
+            _gameEvents.SendToPlayer(connectionId, "roomState", room.RoomState());
         }
 
         return Task.CompletedTask;
