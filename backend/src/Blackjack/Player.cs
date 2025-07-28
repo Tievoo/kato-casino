@@ -54,7 +54,7 @@ public class Player(string username, string connectionId)
         var playerScore = CalculateBestScore();
 
         if (Status == PlayerStatus.Blackjack) return Bet + Bet * (3/2); // Player has blackjack
-        if (playerScore > 21 || Status == PlayerStatus.Bust || playerScore < dealerScore) return 0; // Player busts
+        if (playerScore > 21 || Status == PlayerStatus.Bust || (playerScore < dealerScore && dealer.Status != PlayerStatus.Bust)) return 0; // Player busts
         if (dealerScore > 21 || dealer.Status == PlayerStatus.Bust || playerScore > dealerScore) return Bet*2; // Dealer busts
         if (playerScore == dealerScore) return Bet; // Push
 

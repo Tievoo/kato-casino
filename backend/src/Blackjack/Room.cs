@@ -27,6 +27,7 @@ public class Room(GameEvents events, string id)
     public int currentPlayerIndex = -1;
     static readonly int MIN_PLAYERS = 1;
     static readonly int MS_DELAY = 500;
+    static readonly int MS_TIMER = 10000;
 
     public object RoomState()
     {
@@ -78,7 +79,7 @@ public class Room(GameEvents events, string id)
     {
         ChangeStatus(RoomStatus.WaitingForBets);
         ChangePlayersStatus(PlayerStatus.Betting);
-        Task.Delay(30000).ContinueWith(_ =>
+        Task.Delay(MS_TIMER).ContinueWith(_ =>
         {
             if (Status == RoomStatus.WaitingForBets && BetsPlaced())
             {
@@ -371,6 +372,7 @@ public class Room(GameEvents events, string id)
             Console.WriteLine("All players are bust, dealer wins.");
             ChangeStatus(RoomStatus.Results);
             // Reset players
+            Restart();
             return;
         }
 
@@ -397,6 +399,13 @@ public class Room(GameEvents events, string id)
             {
                 card = card.ToString()
             });
+            if (Dealer.CalculateBestScore() > 21)
+            {
+                Dealer.Status = PlayerStatus.Bust;
+                Console.WriteLine("Dealer has busted.");
+                Task.Delay(MS_DELAY).Wait(); // Simulate delay for dealing cards
+                break;
+            }
             Task.Delay(MS_DELAY).Wait(); // Simulate delay for dealing cards
         }
 
@@ -406,14 +415,43 @@ public class Room(GameEvents events, string id)
             status = Dealer.Status.ToString()
         });
 
-        // CalculateResults();
+        
         Console.WriteLine("Dealer has finished their turn, calculating results...");
+        Results();
+        Task.Delay(MS_DELAY*5).Wait(); // Wait for results to be processed
         Restart();
     }
 
     public bool SeatBelongsToPlayer(int seatIndex, string playerId)
     {
         return Seats[seatIndex]?.Username == playerId;
+    }
+
+    public void Results()
+    {
+        ChangeStatus(RoomStatus.Results);
+
+        if (Seats.All(s => s == null || s.Status == PlayerStatus.Bust || s.Status == PlayerStatus.Waiting))
+        {
+            Console.WriteLine("All players are bust, dealer wins.");
+            // Events.SendToRoom(Id, "", null);
+            Restart();
+            return;
+        }
+
+        foreach (var seat in Seats)
+        {
+            if (seat == null || seat.Status == PlayerStatus.Bust || seat.Status == PlayerStatus.Waiting) continue;
+
+            int payout = seat.GetPayout(Dealer);
+            // seat.Balance += payout; // Assuming you have a balance property
+            Events.SendToRoom(Id, "playerPayout", new
+            {
+                seatIndex = Array.IndexOf(Seats, seat),
+                payout
+            });
+        }
+
     }
 
     public void Restart()

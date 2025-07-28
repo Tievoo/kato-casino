@@ -104,6 +104,11 @@ export function useBlackjack(playerId: string, roomId: string | undefined, setRo
                 return { ...prev, playerTurn };
             });
         })
+    
+        connection.on("playerPayout", ({ seatIndex, payout }: { seatIndex: number, payout: number }) => {
+            console.log("playerPayout", seatIndex, payout);
+            // Por ahora no tengo balance ni animaciones así que es al pedo
+        })
 
         connection.start().then(() => {
             console.log("Conectado a la sala");
