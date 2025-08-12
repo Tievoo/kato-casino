@@ -1,8 +1,14 @@
 import { HubConnection, HubConnectionBuilder } from "@microsoft/signalr";
 import { useEffect, useState } from "react";
 import { Player, PlayerStatus, RoomState, RoomStatus } from "../types/blackjack";
+import { ToastNotificationProps } from "../components/toastNotification";
 
-export function useBlackjack(playerId: string, roomId: string | undefined, setRoomState: React.Dispatch<React.SetStateAction<RoomState | null>>) {
+export function useBlackjack(
+    playerId: string,
+    roomId: string | undefined,
+    setRoomState: React.Dispatch<React.SetStateAction<RoomState | null>>,
+    notify?: (props: ToastNotificationProps) => void
+) {
     const [connection, setConnection] = useState<HubConnection | null>(null);
 
     useEffect(() => {
@@ -69,7 +75,7 @@ export function useBlackjack(playerId: string, roomId: string | undefined, setRo
             });
         });
 
-        connection.on("cardDealt", ({ seatIndex, card } : { seatIndex: number, card: string }) => {
+        connection.on("cardDealt", ({ seatIndex, card }: { seatIndex: number, card: string }) => {
             setRoomState(prev => {
                 if (!prev) return prev;
                 const newSeats = [...prev.seats];
@@ -84,14 +90,14 @@ export function useBlackjack(playerId: string, roomId: string | undefined, setRo
             });
         });
 
-        connection.on("dealerCardDealt", ({ card } : { card: string }) => {
+        connection.on("dealerCardDealt", ({ card }: { card: string }) => {
             setRoomState(prev => {
                 if (!prev) return prev;
                 return { ...prev, dealerCards: [...prev.dealerCards, card] };
             });
         });
 
-        connection.on("dealerShowCard", ({ card } : { card: string }) => {
+        connection.on("dealerShowCard", ({ card }: { card: string }) => {
             setRoomState(prev => {
                 if (!prev) return prev;
                 return { ...prev, dealerCards: [prev.dealerCards[0], card] };
@@ -104,10 +110,15 @@ export function useBlackjack(playerId: string, roomId: string | undefined, setRo
                 return { ...prev, playerTurn };
             });
         })
-    
+
         connection.on("playerPayout", ({ seatIndex, payout }: { seatIndex: number, payout: number }) => {
             console.log("playerPayout", seatIndex, payout);
-            // Por ahora no tengo balance ni animaciones así que es al pedo
+            if (!notify) return;
+            if (payout == 0) {
+                notify({ message: "No winnings this time!", type: "error" });
+            } else {
+                notify({ message: `You won ${payout}`, type: "success" });
+            }
         })
 
         connection.start().then(() => {

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useParams } from "react-router";
 import { Player, PlayerStatus, RoomState, RoomStatus } from "../../types/blackjack";
 import { useBlackjack } from "../../hooks/useBlackjack";
+import ToastNotification, { ToastNotificationProps } from "../../components/toastNotification";
 
 function getTotal(hand: string[]) {
     let total = 0;
@@ -35,7 +36,8 @@ export function Room() {
 
     const [roomState, setRoomState] = useState<RoomState | null>(null);
     const [betAmount, setBetAmount] = useState<number>(10); // Apuesta por defecto
-    const { connection } = useBlackjack(playerId, roomId, setRoomState);
+    const [toast, setToast] = useState<ToastNotificationProps | null>(null);
+    const { connection } = useBlackjack(playerId, roomId, setRoomState, setToast);
 
     const handleJoinTable = (seatIndex: number) => {
         if (connection && !roomState?.seats[seatIndex]) {
@@ -70,6 +72,11 @@ export function Room() {
 
     return (
         <div className="flex flex-col">
+            <ToastNotification
+                message={toast?.message || null}
+                type={toast?.type || "info"}
+                onClose={() => setToast(null)}
+            />
             <span>Cartas del dealer: {(roomState.dealerCards || []).join(", ")}</span>
             <span className="mb-6">Total del dealer: {getTotal(roomState.dealerCards)}</span>
             {/* Sección de apuestas */}

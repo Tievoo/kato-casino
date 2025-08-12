@@ -88,7 +88,7 @@ public class Room(GameEvents events, string id)
             }
             else
             {
-                Console.WriteLine("Not enough bets placed, refunding bets...");
+                // Console.WriteLine("Not enough bets placed, refunding bets...");
                 RefundBets();
             }
         });
@@ -445,7 +445,7 @@ public class Room(GameEvents events, string id)
 
             int payout = seat.GetPayout(Dealer);
             // seat.Balance += payout; // Assuming you have a balance property
-            Events.SendToRoom(Id, "playerPayout", new
+            Events.SendToPlayer(seat.ConnectionId, "playerPayout", new
             {
                 seatIndex = Array.IndexOf(Seats, seat),
                 payout

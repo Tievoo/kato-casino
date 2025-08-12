@@ -46,3 +46,9 @@ export type Card = {
     value: string;
     isVisible: boolean;
 }
+
+export type NotifyProps = {
+    message: string;
+    type: "success" | "error";
+    
+}
