@@ -39,6 +39,7 @@ export type RoomState = {
     playerTurn: number;
     dealerCards: string[];
     status: RoomStatus;
+    dealerStatus: PlayerStatus;
 }
 
 export type Card = {

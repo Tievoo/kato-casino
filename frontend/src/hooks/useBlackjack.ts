@@ -97,6 +97,13 @@ export function useBlackjack(
             });
         });
 
+        connection.on("dealerStatus", (status: PlayerStatus) => {
+            setRoomState(prev => {
+                if (!prev) return prev;
+                return { ...prev, dealerStatus: status };
+            });
+        });
+
         connection.on("dealerShowCard", ({ card }: { card: string }) => {
             setRoomState(prev => {
                 if (!prev) return prev;
@@ -112,7 +119,6 @@ export function useBlackjack(
         })
 
         connection.on("playerPayout", ({ seatIndex, payout }: { seatIndex: number, payout: number }) => {
-            console.log("playerPayout", seatIndex, payout);
             if (!notify) return;
             if (payout == 0) {
                 notify({ message: "No winnings this time!", type: "error" });

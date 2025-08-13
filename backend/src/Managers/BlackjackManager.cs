@@ -52,8 +52,14 @@ public class BlackjackManager : CommandManager
         if (_rooms.TryGetValue(roomId, out Room? room))
         {
             _gameEvents.AddToGroup(connectionId, roomId);
-            // Build seat info
             var seats = room.Seats;
+            for (int i = 0; i < seats.Length; i++)
+            {
+                if (seats[i] != null && seats[i].Username == payload.username)
+                {
+                    seats[i].ConnectionId = connectionId;
+                }
+            }
             _gameEvents.SendToPlayer(connectionId, "roomState", room.RoomState());
         }
 

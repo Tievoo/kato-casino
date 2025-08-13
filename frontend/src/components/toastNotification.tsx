@@ -20,6 +20,7 @@ const ToastNotification: React.FC<ToastNotificationProps> = ({
 
     useEffect(() => {
         // Clear any existing timeout
+        console.log("Setting up toast notification for message:", message);
         if (timeoutId) {
             window.clearTimeout(timeoutId);
         }
@@ -43,7 +44,7 @@ const ToastNotification: React.FC<ToastNotificationProps> = ({
                 window.clearTimeout(timeoutId);
             }
         };
-    }, [message, type, duration, onClose]);
+    }, [message, type, duration]);
 
     if (!isVisible || !message) {
         return null;

@@ -45,6 +45,7 @@ public class Room(GameEvents events, string id)
             status = Status.ToString(),
             playerTurn = currentPlayerIndex,
             dealerCards = Dealer.Hand.Select(c => c.ToString()).ToList(),
+            dealerStatus = Dealer.Status.ToString(),
         };
     }
 
@@ -399,17 +400,10 @@ public class Room(GameEvents events, string id)
             {
                 card = card.ToString()
             });
-            if (Dealer.CalculateBestScore() > 21)
-            {
-                Dealer.Status = PlayerStatus.Bust;
-                Console.WriteLine("Dealer has busted.");
-                Task.Delay(MS_DELAY).Wait(); // Simulate delay for dealing cards
-                break;
-            }
             Task.Delay(MS_DELAY).Wait(); // Simulate delay for dealing cards
         }
 
-        Dealer.Status = PlayerStatus.Stand;
+        Dealer.Status = Dealer.CalculateBestScore() > 21 ? PlayerStatus.Bust : PlayerStatus.Stand;
         Events.SendToRoom(Id, "dealerStatus", new
         {
             status = Dealer.Status.ToString()
@@ -431,20 +425,13 @@ public class Room(GameEvents events, string id)
     {
         ChangeStatus(RoomStatus.Results);
 
-        if (Seats.All(s => s == null || s.Status == PlayerStatus.Bust || s.Status == PlayerStatus.Waiting))
-        {
-            Console.WriteLine("All players are bust, dealer wins.");
-            // Events.SendToRoom(Id, "", null);
-            Restart();
-            return;
-        }
-
         foreach (var seat in Seats)
         {
             if (seat == null || seat.Status == PlayerStatus.Bust || seat.Status == PlayerStatus.Waiting) continue;
 
             int payout = seat.GetPayout(Dealer);
             // seat.Balance += payout; // Assuming you have a balance property
+            Console.WriteLine($"Player {seat.Username} payout: {payout}, connectionId: {seat.ConnectionId}");
             Events.SendToPlayer(seat.ConnectionId, "playerPayout", new
             {
                 seatIndex = Array.IndexOf(Seats, seat),
