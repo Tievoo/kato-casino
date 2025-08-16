@@ -425,6 +425,8 @@ public class Room(GameEvents events, string id)
     {
         ChangeStatus(RoomStatus.Results);
 
+        //Payout per connectionId
+        var payouts = new Dictionary<string, int>();
         foreach (var seat in Seats)
         {
             if (seat == null || seat.Status == PlayerStatus.Bust || seat.Status == PlayerStatus.Waiting) continue;
@@ -432,10 +434,14 @@ public class Room(GameEvents events, string id)
             int payout = seat.GetPayout(Dealer);
             // seat.Balance += payout; // Assuming you have a balance property
             Console.WriteLine($"Player {seat.Username} payout: {payout}, connectionId: {seat.ConnectionId}");
-            Events.SendToPlayer(seat.ConnectionId, "playerPayout", new
+            payouts[seat.ConnectionId] += payout;
+        }
+
+        foreach (var payout in payouts)
+        {
+            Events.SendToPlayer(payout.Key, "playerPayout", new
             {
-                seatIndex = Array.IndexOf(Seats, seat),
-                payout
+                payout = payout.Value
             });
         }
 

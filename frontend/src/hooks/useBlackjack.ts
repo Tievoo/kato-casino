@@ -118,7 +118,7 @@ export function useBlackjack(
             });
         })
 
-        connection.on("playerPayout", ({ seatIndex, payout }: { seatIndex: number, payout: number }) => {
+        connection.on("playerPayout", ({ payout }: { seatIndex: number, payout: number }) => {
             if (!notify) return;
             if (payout == 0) {
                 notify({ message: "No winnings this time!", type: "error" });
